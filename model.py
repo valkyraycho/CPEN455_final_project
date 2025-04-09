@@ -108,6 +108,7 @@ class PixelCNN(nn.Module):
             )
 
         self.NUM_CLASSES = 4
+
         self.embeddings_early_u = nn.Embedding(
             num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
         )
@@ -115,12 +116,16 @@ class PixelCNN(nn.Module):
             num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
         )
 
-        # self.embeddings_middle_u = nn.Embedding(
-        #     num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
-        # )
-        # self.embeddings_middle_ul = nn.Embedding(
-        #     num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
-        # )
+        self.embeddings_middle_u = nn.Embedding(
+            num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
+        )
+        self.embeddings_middle_ul = nn.Embedding(
+            num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
+        )
+
+        self.embeddings_late = nn.Embedding(
+            num_embeddings=self.NUM_CLASSES, embedding_dim=nr_filters
+        )
 
         self.nr_filters = nr_filters
         self.input_channels = input_channels
@@ -214,31 +219,35 @@ class PixelCNN(nn.Module):
         if labels is None:
             labels = torch.zeros(x.shape[0], dtype=torch.long, device=self.device)
 
-        label_embedding_early_u = self.embeddings_early_u(labels.to(self.device)).to(
-            self.device
-        )
-        label_embedding_early_ul = self.embeddings_early_ul(labels.to(self.device)).to(
-            self.device
-        )
-
-        # label_embedding_middle_u = self.embeddings_middle_u(labels.to(self.device)).to(
+        # label_embedding_early_u = self.embeddings_early_u(labels.to(self.device)).to(
         #     self.device
         # )
-        # label_embedding_middle_ul = self.embeddings_middle_ul(
-        #     labels.to(self.device)
-        # ).to(self.device)
+        # label_embedding_early_ul = self.embeddings_early_ul(labels.to(self.device)).to(
+        #     self.device
+        # )
+
+        label_embedding_middle_u = self.embeddings_middle_u(labels.to(self.device)).to(
+            self.device
+        )
+        label_embedding_middle_ul = self.embeddings_middle_ul(
+            labels.to(self.device)
+        ).to(self.device)
+
+        # label_embedding_late = self.embeddings_late(labels.to(self.device)).to(
+        #     self.device
+        # )
 
         ###      UP PASS    ###
         x = x if sample else torch.cat((x, self.init_padding), 1)
         u_list = [self.u_init(x)]
         ul_list = [self.ul_init[0](x) + self.ul_init[1](x)]
 
-        u_list[-1] += label_embedding_early_u.view(
-            label_embedding_early_u.shape[0], label_embedding_early_u.shape[1], 1, 1
-        ).repeat(1, 1, u_list[-1].shape[2], u_list[-1].shape[3])
-        ul_list[-1] += label_embedding_early_ul.view(
-            label_embedding_early_ul.shape[0], label_embedding_early_ul.shape[1], 1, 1
-        ).repeat(1, 1, ul_list[-1].shape[2], ul_list[-1].shape[3])
+        # u_list[-1] += label_embedding_early_u.view(
+        #     label_embedding_early_u.shape[0], label_embedding_early_u.shape[1], 1, 1
+        # ).repeat(1, 1, u_list[-1].shape[2], u_list[-1].shape[3])
+        # ul_list[-1] += label_embedding_early_ul.view(
+        #     label_embedding_early_ul.shape[0], label_embedding_early_ul.shape[1], 1, 1
+        # ).repeat(1, 1, ul_list[-1].shape[2], ul_list[-1].shape[3])
 
         for i in range(3):
             # resnet block
@@ -251,12 +260,12 @@ class PixelCNN(nn.Module):
                 u_list += [self.downsize_u_stream[i](u_list[-1])]
                 ul_list += [self.downsize_ul_stream[i](ul_list[-1])]
 
-        # u_list[-1] += label_embedding_middle_u.view(
-        #     label_embedding_middle_u.shape[0], label_embedding_middle_u.shape[1], 1, 1
-        # ).repeat(1, 1, u_list[-1].shape[2], u_list[-1].shape[3])
-        # ul_list[-1] += label_embedding_middle_ul.view(
-        #     label_embedding_middle_ul.shape[0], label_embedding_middle_ul.shape[1], 1, 1
-        # ).repeat(1, 1, ul_list[-1].shape[2], ul_list[-1].shape[3])
+        u_list[-1] += label_embedding_middle_u.view(
+            label_embedding_middle_u.shape[0], label_embedding_middle_u.shape[1], 1, 1
+        ).repeat(1, 1, u_list[-1].shape[2], u_list[-1].shape[3])
+        ul_list[-1] += label_embedding_middle_ul.view(
+            label_embedding_middle_ul.shape[0], label_embedding_middle_ul.shape[1], 1, 1
+        ).repeat(1, 1, ul_list[-1].shape[2], ul_list[-1].shape[3])
 
         ###    DOWN PASS    ###
         u = u_list.pop()
@@ -270,6 +279,10 @@ class PixelCNN(nn.Module):
             if i != 2:
                 u = self.upsize_u_stream[i](u)
                 ul = self.upsize_ul_stream[i](ul)
+
+        # ul += label_embedding_late.view(
+        #     label_embedding_late.shape[0], label_embedding_late.shape[1], 1, 1
+        # ).repeat(1, 1, x.shape[2], x.shape[3])
 
         x_out = self.nin_out(F.elu(ul))
 

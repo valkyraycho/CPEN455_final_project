@@ -25,7 +25,7 @@ from utils import *
 # This is a demonstration of how to call the sample function, feel free to modify it
 # You should modify this sample function to get the generated images from your model
 # You should save the generated images to the gen_data_dir, which is fixed as 'samples'
-sample_op = lambda x: sample_from_discretized_mix_logistic(x, 5)
+sample_op = lambda x: sample_from_discretized_mix_logistic(x, 10)
 
 
 def my_sample(
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # TODO: Begin of your code
     # Load your model and generate images in the gen_data_dir, feel free to modify the model
-    model = PixelCNN(nr_resnet=1, nr_filters=40, input_channels=3, nr_logistic_mix=5)
+    model = PixelCNN(nr_resnet=3, nr_filters=160, input_channels=3, nr_logistic_mix=10)
     model = model.to(device)
     model.load_state_dict(
         torch.load("models/conditional_pixelcnn.pth", map_location=device)

@@ -11,6 +11,7 @@ from torchvision import datasets, transforms
 from tqdm import tqdm
 
 import wandb
+from classification_evaluation import classifier
 from dataset import *
 from model import *
 from utils import *
@@ -47,6 +48,7 @@ def train_or_test(
     if args.en_wandb:
         wandb.log({mode + "-Average-BPD": loss_tracker.get_mean()})
         wandb.log({mode + "-epoch": epoch})
+        wandb.log({"Accuracy": classifier(model, val_loader, device)})
 
 
 if __name__ == "__main__":
@@ -269,9 +271,20 @@ if __name__ == "__main__":
 
     elif "cpen455" in args.dataset:
         ds_transforms = transforms.Compose([transforms.Resize((32, 32)), rescaling])
+        training_transforms = transforms.Compose(
+            [
+                transforms.Resize((32, 32)),
+                transforms.ColorJitter(
+                    brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
+                ),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+                rescaling,
+            ]
+        )
         train_loader = torch.utils.data.DataLoader(
             CPEN455Dataset(
-                root_dir=args.data_dir, mode="train", transform=ds_transforms
+                root_dir=args.data_dir, mode="train", transform=training_transforms
             ),
             batch_size=args.batch_size,
             shuffle=True,
